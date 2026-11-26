@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MUHOLO TROUBLESHOOTER</title>
+<style>
+:root{--bg:#080d18;--panel:#111c30;--panel2:#16243b;--blue:#2585ff;--cyan:#42c8ff;--text:#eef5ff;--muted:#9aabc4;--line:#263956;--green:#38c98b;--amber:#ffbf5b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px Arial,sans-serif}
+header{padding:22px 18px;background:linear-gradient(120deg,#101c33,#102d55);border-bottom:1px solid var(--line)}
+.brand{font-size:22px;font-weight:800;letter-spacing:.5px}.brand span{color:var(--cyan)}
+header p{color:var(--muted);margin:7px 0 0;font-size:13px}
+main{max-width:1050px;margin:auto;padding:18px}
+.notice{background:#152b43;border:1px solid #28517c;padding:12px 14px;border-radius:12px;color:#c9e8ff;font-size:13px;line-height:1.5;margin-bottom:18px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+.card,.section{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.stat strong{display:block;font-size:25px;margin-top:8px}.label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.7px}
+h2{font-size:17px;margin:0 0 14px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+form{display:grid;gap:11px}label{font-size:13px;color:#c5d4e8}
+input,select,textarea{width:100%;background:#0b1424;border:1px solid #304563;border-radius:9px;padding:11px;color:var(--text);font:inherit}
+button{border:0;border-radius:9px;background:var(--blue);color:white;padding:12px 15px;font-weight:700;cursor:pointer}
+button.secondary{background:#203653;border:1px solid #365477}
+button:active{transform:scale(.99)}
+.result{margin-top:12px;padding:12px;border-radius:9px;background:#0b1424;border:1px solid var(--line);line-height:1.5}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:10px 7px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:600}
+.empty{color:var(--muted);padding:12px 0;font-size:13px}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:24px}
+@media(max-width:650px){.stats{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.stats .card:last-child{grid-column:span 2}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">MUHOLO <span>TROUBLESHOOTER</span></div>
+  <p>Phone service & authorised loan-device management</p>
+</header>
+<main>
+  <div class="notice"><b>Prototype notice:</b> This starter app stores records only in this browser. It does not query lender databases, read device IMEIs automatically, or unlock phones. Unlock eligibility must be confirmed by the lender or authorised device-management provider.</div>
+  <div class="stats">
+    <div class="card stat"><div class="label">Devices recorded</div><strong id="deviceCount">0</strong></div>
+    <div class="card stat"><div class="label">Eligible for release</div><strong id="eligibleCount">0</strong></div>
+    <div class="card stat"><div class="label">Needs verification</div><strong id="verifyCount">0</strong></div>
+  </div>
+  <div class="grid">
+    <section class="section">
+      <h2>Register a device</h2>
+      <form id="deviceForm">
+        <div><label for="customer">Customer name</label><input id="customer" required placeholder="Customer name"></div>
+        <div><label for="brand">Phone brand</label><select id="brand"><option>Tecno</option><option>Infinix</option><option>Itel</option><option>Samsung</option><option>Other</option></select></div>
+        <div><label for="model">Phone model</label><input id="model" required placeholder="e.g. Spark 20"></div>
+        <div><label for="imei">IMEI (15 digits, if available)</label><input id="imei" inputmode="numeric" maxlength="15" pattern="[0-9]{15}" placeholder="Enter 15-digit IMEI"></div>
+        <div><label for="loan">Loan status (as confirmed by lender)</label><select id="loan"><option value="unknown">Not yet verified</option><option value="active">Active / balance outstanding</option><option value="paid">Fully paid</option></select></div>
+        <div><label for="authorised">Release authorisation</label><select id="authorised"><option value="no">Not confirmed</option><option value="yes">Confirmed by lender</option></select></div>
+        <button type="submit">Save device record</button>
+      </form>
+      <div id="formResult" aria-live="polite"></div>
+    </section>
+    <section class="section">
+      <h2>Check release eligibility</h2>
+      <form id="checkForm">
+        <div><label for="checkImei">Device IMEI</label><input id="checkImei" inputmode="numeric" maxlength="15" placeholder="Enter recorded IMEI" required></div>
+        <button type="submit">Check recorded status</button>
+      </form>
+      <div id="checkResult" class="result" aria-live="polite">Enter an IMEI saved in this browser to view its recorded status.</div>
+      <p class="empty">A result of “eligible” is an administrative record only. The actual release must be carried out through the lender’s or manufacturer’s authorised process.</p>
+    </section>
+  </div>
+  <section class="section" style="margin-top:14px">
+    <h2>Device records</h2>
+    <div style="overflow-x:auto"><table><thead><tr><th>Customer</th><th>Device</th><th>IMEI</th><th>Loan</th><th>Authorisation</th></tr></thead><tbody id="records"><tr><td colspan="5" class="empty">No devices recorded yet.</td></tr></tbody></table></div>
+    <button class="secondary" id="exportBtn" style="margin-top:14px">Export records as CSV</button>
+  </section>
+</main>
+<footer>MUHOLO TROUBLESHOOTER · Starter prototype · Keep customer and IMEI data secure.</footer>
+<script>
+const KEY='muholoTroubleshooterDevices';
+const getData=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){return []}};
+const saveData=d=>localStorage.setItem(KEY,JSON.stringify(d));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function eligible(d){return d.loan==='paid'&&d.authorised==='yes'}
+function render(){
+ const data=getData();
+ document.getElementById('deviceCount').textContent=data.length;
+ document.getElementById('eligibleCount').textContent=data.filter(eligible).length;
+ document.getElementById('verifyCount').textContent=data.filter(d=>d.loan==='unknown'||d.authorised!=='yes').length;
+ const tbody=document.getElementById('records');
+ tbody.innerHTML=data.length?data.slice().reverse().map(d=>`<tr><td>${esc(d.customer)}</td><td>${esc(d.brand)} ${esc(d.model)}</td><td>${esc(d.imei||'Not entered')}</td><td>${esc({unknown:'Unverified',active:'Outstanding',paid:'Fully paid'}[d.loan])}</td><td>${d.authorised==='yes'?'Confirmed':'Not confirmed'}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">No devices recorded yet.</td></tr>';
+}
+document.getElementById('deviceForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const imei=document.getElementById('imei').value.trim();
+ if(imei&&!/^\d{15}$/.test(imei)){document.getElementById('formResult').innerHTML='<div class="result">IMEI must contain exactly 15 digits, or leave it blank if unavailable.</div>';return}
+ const data=getData();
+ if(imei&&data.some(d=>d.imei===imei)){document.getElementById('formResult').innerHTML='<div class="result">That IMEI is already recorded in this browser.</div>';return}
+ data.push({customer:document.getElementById('customer').value.trim(),brand:document.getElementById('brand').value,model:document.getElementById('model').value.trim(),imei,loan:document.getElementById('loan').value,authorised:document.getElementById('authorised').value});
+ saveData(data);render();e.target.reset();
+ document.getElementById('formResult').innerHTML='<div class="result">Device record saved on this device.</div>';
+});
+document.getElementById('checkForm').addEventListener('submit',e=>{
+ e.preventDefault();const imei=document.getElementById('checkImei').value.trim();
+ const d=getData().find(x=>x.imei===imei);const out=document.getElementById('checkResult');
+ if(!d){out.textContent='No matching record found in this browser. This is not a network or lender-database lookup.';return}
+ if(eligible(d)){out.innerHTML='<b style="color:var(--green)">Recorded as eligible for authorised release.</b><br>Loan marked fully paid and lender authorisation marked confirmed.'}
+ else if(d.loan==='active'){out.innerHTML='<b style="color:var(--amber)">Not eligible for release.</b><br>The recorded loan status shows an outstanding balance.'}
+ else{out.innerHTML='<b style="color:var(--amber)">Verification required.</b><br>Confirm full settlement and obtain lender authorisation before any release.'}
+});
+document.getElementById('exportBtn').addEventListener('click',()=>{
+ const data=getData();if(!data.length){alert('There are no records to export.');return}
+ const rows=[['Customer','Brand','Model','IMEI','Loan status','Authorisation'],...data.map(d=>[d.customer,d.brand,d.model,d.imei,d.loan,d.authorised])];
+ const csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='muholo-device-records.csv';a.click();URL.revokeObjectURL(a.href);
+});
+render();
+</script>
+</body></html>
